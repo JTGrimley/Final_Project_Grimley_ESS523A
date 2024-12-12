@@ -49,6 +49,8 @@ ui <- fluidPage(
                    "Load Data", 
                    class = "btn-primary", 
                    width = "100%"),
+      div (style = "margin-top: 15px;"),
+      downloadButton("downloadData", "Download Data", class = "btn-success", width = "100%"),
       
       # Additional site information
       htmlOutput("siteInfoDisplay")
@@ -86,6 +88,44 @@ server <- function(input, output, session) {
                       choices = site_choices, 
                       selected = site_choices[1])
   })
+  
+  # Add this to your server function, after the observeEvent(input$loadData, {...})
+  # Download handler for the data
+  output$downloadData <- downloadHandler(
+    filename = function() {
+      paste0("streamflow_data_", 
+             input$site, 
+             "_", 
+             format(input$dateRange[1], "%Y%m%d"), 
+             "_", 
+             format(input$dateRange[2], "%Y%m%d"), 
+             ".csv")
+    },
+    content = function(file) {
+      req(input$site, input$dateRange)
+      
+      tryCatch({
+        data <- readNWISdv(
+          input$site, 
+          parameterCd = "00060", 
+          startDate = input$dateRange[1], 
+          endDate = input$dateRange[2]
+        ) %>% 
+          renameNWISColumns()
+        
+        # Write the data to the file
+        write.csv(data, file, row.names = FALSE)
+        
+        # Optional: Show a success notification
+        showNotification("Data downloaded successfully!", type = "message")
+      }, error = function(e) {
+        showNotification(
+          paste("Error downloading data:", e$message), 
+          type = "error"
+        )
+      })
+    }
+  )
   
   # Site information display
   output$siteInfoDisplay <- renderUI({
